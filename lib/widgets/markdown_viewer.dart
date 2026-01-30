@@ -23,9 +23,34 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
   Heading? _lastTargetHeading;
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 监听滚动事件，更新阅读进度
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    if (maxScroll <= 0) return;
+
+    final currentScroll = _scrollController.offset;
+    final progress = (currentScroll / maxScroll).clamp(0.0, 1.0);
+
+    // 使用 WidgetsBinding 延迟更新，避免在 build 过程中更新状态
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<DocumentProvider>().updateReadingProgress(progress);
+      }
+    });
   }
 
   @override
@@ -40,24 +65,30 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
       _scrollToTargetHeading(documentProvider);
     });
 
-    return Container(
-      color: theme.scaffoldBackgroundColor,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppConstants.contentMaxWidth),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppConstants.spacingLarge,
-              vertical: AppConstants.spacingMedium,
+    return RepaintBoundary(
+      child: Container(
+        color: theme.scaffoldBackgroundColor,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppConstants.contentMaxWidth,
             ),
-            child: _buildMarkdownContent(
-              context,
-              documentProvider.content,
-              documentProvider.searchQuery,
-              documentProvider.searchResult.matches.map((m) => m.start).toList(),
-              documentProvider.searchResult.currentIndex,
-              theme,
-              isDark,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveLayout.isMobile(context)
+                    ? AppConstants.spacingMedium
+                    : AppConstants.spacingLarge,
+                vertical: AppConstants.spacingMedium,
+              ),
+              child: _buildMarkdownContent(
+                context,
+                documentProvider.content,
+                documentProvider.searchQuery,
+                documentProvider.searchResult.matches.map((m) => m.start).toList(),
+                documentProvider.searchResult.currentIndex,
+                theme,
+                isDark,
+              ),
             ),
           ),
         ),
@@ -166,15 +197,20 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
   /// 构建 Markdown 样式表
   MarkdownStyleSheet _buildMarkdownStyleSheet(ThemeData theme, bool isDark) {
     final textColor = isDark ? const Color(0xFFF5F5F7) : const Color(0xFF1D1D1F);
-    final codeBackgroundColor = isDark ? const Color(0xFF3A3A3C) : const Color(0xFFF5F5F7);
-    final blockquoteColor = isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE5E5EA);
+    final codeBackgroundColor = isDark
+        ? const Color(0xFF2C2C2E)
+        : const Color(0xFFF5F5F7);
+    final blockquoteColor = isDark
+        ? const Color(0xFF3A3A3C)
+        : const Color(0xFFE5E5EA);
 
     return MarkdownStyleSheet(
       p: TextStyle(
         fontFamily: 'PingFang SC',
         fontSize: 16,
-        height: 1.7,
+        height: 1.75,
         color: textColor,
+        letterSpacing: 0.2,
       ),
       h1: TextStyle(
         fontFamily: 'PingFang SC',
@@ -182,13 +218,23 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
         fontWeight: FontWeight.w700,
         height: 1.3,
         color: textColor,
+        letterSpacing: -0.5,
+      ),
+      h1Padding: const EdgeInsets.only(
+        top: AppConstants.spacingLarge,
+        bottom: AppConstants.spacingMedium,
       ),
       h2: TextStyle(
         fontFamily: 'PingFang SC',
         fontSize: 26,
         fontWeight: FontWeight.w600,
-        height: 1.3,
+        height: 1.35,
         color: textColor,
+        letterSpacing: -0.3,
+      ),
+      h2Padding: const EdgeInsets.only(
+        top: AppConstants.spacingLarge,
+        bottom: AppConstants.spacingSmall,
       ),
       h3: TextStyle(
         fontFamily: 'PingFang SC',
@@ -196,6 +242,10 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
         fontWeight: FontWeight.w600,
         height: 1.4,
         color: textColor,
+      ),
+      h3Padding: const EdgeInsets.only(
+        top: AppConstants.spacingMedium,
+        bottom: AppConstants.spacingSmall,
       ),
       h4: TextStyle(
         fontFamily: 'PingFang SC',
@@ -220,30 +270,38 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
       ),
       listBullet: TextStyle(
         fontSize: 16,
-        color: textColor,
+        color: AppTheme.primaryColor,
       ),
+      listIndent: 24,
       code: TextStyle(
         fontFamily: 'SF Mono, Menlo, Monaco, Courier New, monospace',
         fontSize: 14,
         color: AppTheme.primaryColor,
         backgroundColor: codeBackgroundColor,
+        letterSpacing: 0,
       ),
       codeblockDecoration: BoxDecoration(
         color: codeBackgroundColor,
         borderRadius: BorderRadius.circular(AppConstants.borderRadiusMedium),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.05),
+          width: 1,
+        ),
       ),
       codeblockPadding: const EdgeInsets.all(AppConstants.spacingMedium),
       blockquote: TextStyle(
         fontFamily: 'PingFang SC',
         fontSize: 16,
         fontStyle: FontStyle.italic,
-        color: textColor.withValues(alpha: 0.8),
+        color: textColor.withValues(alpha: 0.85),
         height: 1.6,
       ),
       blockquoteDecoration: BoxDecoration(
-        color: blockquoteColor.withValues(alpha: 0.5),
+        color: blockquoteColor.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(AppConstants.borderRadiusSmall),
-        border: const Border(
+        border: Border(
           left: BorderSide(
             color: AppTheme.primaryColor,
             width: 4,
@@ -257,7 +315,8 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
       a: TextStyle(
         color: AppTheme.primaryColor,
         decoration: TextDecoration.underline,
-        decorationColor: AppTheme.primaryColor.withValues(alpha: 0.5),
+        decorationColor: AppTheme.primaryColor.withValues(alpha: 0.4),
+        decorationStyle: TextDecorationStyle.solid,
       ),
       strong: TextStyle(
         fontFamily: 'PingFang SC',
@@ -272,12 +331,14 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
       del: TextStyle(
         fontFamily: 'PingFang SC',
         decoration: TextDecoration.lineThrough,
-        color: textColor.withValues(alpha: 0.6),
+        color: textColor.withValues(alpha: 0.5),
       ),
       horizontalRuleDecoration: BoxDecoration(
         border: Border(
           top: BorderSide(
-            color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE5E5EA),
+            color: isDark
+                ? const Color(0xFF3A3A3C)
+                : const Color(0xFFE5E5EA),
             width: 1,
           ),
         ),
@@ -286,17 +347,21 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
         fontFamily: 'PingFang SC',
         fontWeight: FontWeight.w600,
         color: textColor,
+        fontSize: 14,
       ),
       tableBody: TextStyle(
         fontFamily: 'PingFang SC',
         color: textColor,
+        fontSize: 14,
       ),
       tableBorder: TableBorder.all(
         color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE5E5EA),
         width: 1,
         borderRadius: BorderRadius.circular(AppConstants.borderRadiusSmall),
       ),
-      tableCellsPadding: const EdgeInsets.all(AppConstants.spacingSmall),
+      tableCellsPadding: const EdgeInsets.all(AppConstants.spacingSmall + 4),
+      tableHeadAlign: TextAlign.left,
+      tableColumnWidth: const FlexColumnWidth(),
     );
   }
 
@@ -339,9 +404,14 @@ class _MermaidMarkdown extends StatelessWidget {
         final segment = segments[index];
         
         if (segment.isMermaid) {
-          return MermaidRenderer(
-            code: segment.content,
-            isDark: isDark,
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: AppConstants.spacingMedium,
+            ),
+            child: MermaidRenderer(
+              code: segment.content,
+              isDark: isDark,
+            ),
           );
         }
 
@@ -436,9 +506,14 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
 
     // 检查是否为 Mermaid（额外检查）
     if (MermaidUtils.isMermaidCode(language, code)) {
-      return MermaidRenderer(
-        code: code,
-        isDark: isDark,
+      return Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: AppConstants.spacingMedium,
+        ),
+        child: MermaidRenderer(
+          code: code,
+          isDark: isDark,
+        ),
       );
     }
 
@@ -473,8 +548,9 @@ class _HighlightedMarkdownContent extends StatelessWidget {
       style: TextStyle(
         fontFamily: 'PingFang SC',
         fontSize: 16,
-        height: 1.7,
+        height: 1.75,
         color: textColor,
+        letterSpacing: 0.2,
       ),
     );
   }
@@ -515,8 +591,8 @@ class _HighlightedMarkdownContent extends StatelessWidget {
         style: TextStyle(
           backgroundColor: isCurrentMatch
               ? AppTheme.highlightColor
-              : AppTheme.highlightColor.withValues(alpha: 0.5),
-          color: textColor,
+              : AppTheme.highlightColor.withValues(alpha: 0.4),
+          color: const Color(0xFF1D1D1F),
           fontWeight: isCurrentMatch ? FontWeight.w600 : FontWeight.normal,
         ),
       ));

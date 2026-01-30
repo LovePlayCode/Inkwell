@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:provider/provider.dart';
 import '../providers/document_provider.dart';
+import '../theme/app_theme.dart';
 import '../utils/constants.dart';
 
 /// 文件拖拽区域组件
@@ -17,22 +18,51 @@ class DropZone extends StatefulWidget {
   State<DropZone> createState() => _DropZoneState();
 }
 
-class _DropZoneState extends State<DropZone> {
+class _DropZoneState extends State<DropZone>
+    with SingleTickerProviderStateMixin {
   bool _isDragging = false;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: AppConstants.animationNormal,
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+    _opacityAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return DropTarget(
       onDragEntered: (details) {
         setState(() => _isDragging = true);
+        _animationController.forward();
       },
       onDragExited: (details) {
         setState(() => _isDragging = false);
+        _animationController.reverse();
       },
       onDragDone: (details) async {
         setState(() => _isDragging = false);
+        _animationController.reverse();
 
         if (details.files.isNotEmpty) {
           final file = details.files.first;
@@ -43,41 +73,44 @@ class _DropZoneState extends State<DropZone> {
       child: Stack(
         children: [
           widget.child,
-          
+
           // 拖拽覆盖层
           if (_isDragging)
             Positioned.fill(
-              child: AnimatedOpacity(
-                duration: AppConstants.animationFast,
-                opacity: _isDragging ? 1.0 : 0.0,
+              child: AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
+                  return FadeTransition(
+                    opacity: _opacityAnimation,
+                    child: ScaleTransition(
+                      scale: _scaleAnimation,
+                      child: child,
+                    ),
+                  );
+                },
                 child: Container(
                   margin: const EdgeInsets.all(AppConstants.spacingMedium),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(AppConstants.borderRadiusLarge),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.primaryColor.withValues(alpha: 0.08),
+                        AppTheme.primaryDark.withValues(alpha: 0.08),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.borderRadiusLarge,
+                    ),
                     border: Border.all(
-                      color: theme.colorScheme.primary,
+                      color: AppTheme.primaryColor,
                       width: 2,
-                      // 虚线效果使用实线代替，因为 Flutter 不直接支持虚线
                     ),
                   ),
                   child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.file_download_outlined,
-                          size: 64,
-                          color: theme.colorScheme.primary,
-                        ),
-                        const SizedBox(height: AppConstants.spacingMedium),
-                        Text(
-                          '释放以打开文件',
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ],
+                    child: _DragOverlayContent(
+                      primaryColor: theme.colorScheme.primary,
+                      isDark: isDark,
                     ),
                   ),
                 ),
@@ -89,76 +122,95 @@ class _DropZoneState extends State<DropZone> {
   }
 }
 
-/// 空状态组件
-class EmptyState extends StatelessWidget {
-  final VoidCallback onOpenFile;
+/// 拖拽覆盖层内容
+class _DragOverlayContent extends StatefulWidget {
+  final Color primaryColor;
+  final bool isDark;
 
-  const EmptyState({
-    super.key,
-    required this.onOpenFile,
+  const _DragOverlayContent({
+    required this.primaryColor,
+    required this.isDark,
   });
+
+  @override
+  State<_DragOverlayContent> createState() => _DragOverlayContentState();
+}
+
+class _DragOverlayContentState extends State<_DragOverlayContent>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _bounceController;
+  late Animation<double> _bounceAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _bounceController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _bounceAnimation = Tween<double>(begin: 0, end: -10).animate(
+      CurvedAnimation(parent: _bounceController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _bounceController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 图标
-          Container(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedBuilder(
+          animation: _bounceAnimation,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(0, _bounceAnimation.value),
+              child: child,
+            );
+          },
+          child: Container(
             padding: const EdgeInsets.all(AppConstants.spacingLarge),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  theme.colorScheme.primary.withValues(alpha: 0.1),
-                  theme.colorScheme.secondary.withValues(alpha: 0.1),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(AppConstants.borderRadiusLarge * 2),
+              color: widget.primaryColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: widget.primaryColor.withValues(alpha: 0.2),
+                  blurRadius: 20,
+                  spreadRadius: 5,
+                ),
+              ],
             ),
             child: Icon(
-              Icons.description_outlined,
-              size: 64,
-              color: theme.colorScheme.primary,
+              Icons.file_download_outlined,
+              size: 56,
+              color: widget.primaryColor,
             ),
           ),
-          
-          const SizedBox(height: AppConstants.spacingLarge),
-          
-          // 标题
-          Text(
-            '开始阅读',
-            style: theme.textTheme.headlineMedium,
+        ),
+        const SizedBox(height: AppConstants.spacingLarge),
+        Text(
+          '释放以打开文件',
+          style: theme.textTheme.headlineMedium?.copyWith(
+            color: widget.primaryColor,
+            fontWeight: FontWeight.w600,
           ),
-          
-          const SizedBox(height: AppConstants.spacingSmall),
-          
-          // 描述
-          Text(
-            '拖拽 .md 文件到此处，或点击下方按钮打开',
-            style: theme.textTheme.bodyMedium,
+        ),
+        const SizedBox(height: AppConstants.spacingSmall),
+        Text(
+          '支持 .md 文件',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: widget.primaryColor.withValues(alpha: 0.7),
           ),
-          
-          const SizedBox(height: AppConstants.spacingLarge),
-          
-          // 打开按钮
-          ElevatedButton.icon(
-            onPressed: onOpenFile,
-            icon: const Icon(Icons.folder_open_outlined, size: 20),
-            label: const Text('打开文件'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppConstants.spacingLarge,
-                vertical: AppConstants.spacingMedium,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -25,6 +25,13 @@ class DocumentProvider extends ChangeNotifier {
   Heading? _targetHeading;
   int? _activeHeadingIndex;
 
+  // 大纲面板状态
+  bool _isOutlinePanelExpanded = true;
+  double _outlinePanelWidth = 240.0;
+
+  // 阅读进度
+  double _readingProgress = 0.0;
+
   // Getters - 文档
   String? get filePath => _filePath;
   String? get fileName => _fileName;
@@ -43,6 +50,11 @@ class DocumentProvider extends ChangeNotifier {
   // Getters - 大纲
   Heading? get targetHeading => _targetHeading;
   int? get activeHeadingIndex => _activeHeadingIndex;
+  bool get isOutlinePanelExpanded => _isOutlinePanelExpanded;
+  double get outlinePanelWidth => _outlinePanelWidth;
+
+  // Getters - 阅读进度
+  double get readingProgress => _readingProgress;
 
   /// 打开文件选择器
   Future<void> openFile() async {
@@ -56,6 +68,7 @@ class DocumentProvider extends ChangeNotifier {
         _filePath = result.path;
         _fileName = result.fileName;
         _content = result.content;
+        _readingProgress = 0.0;
         _clearSearch();
       }
     } catch (e) {
@@ -84,6 +97,7 @@ class DocumentProvider extends ChangeNotifier {
         _filePath = result.path;
         _fileName = result.fileName;
         _content = result.content;
+        _readingProgress = 0.0;
         _clearSearch();
       }
     } catch (e) {
@@ -191,5 +205,31 @@ class DocumentProvider extends ChangeNotifier {
       _activeHeadingIndex = index;
       notifyListeners();
     }
+  }
+
+  /// 切换大纲面板展开/收起
+  void toggleOutlinePanel() {
+    _isOutlinePanelExpanded = !_isOutlinePanelExpanded;
+    notifyListeners();
+  }
+
+  /// 设置大纲面板展开状态
+  void setOutlinePanelExpanded(bool expanded) {
+    if (_isOutlinePanelExpanded != expanded) {
+      _isOutlinePanelExpanded = expanded;
+      notifyListeners();
+    }
+  }
+
+  /// 更新大纲面板宽度
+  void updateOutlinePanelWidth(double width) {
+    _outlinePanelWidth = width.clamp(180.0, 360.0);
+    notifyListeners();
+  }
+
+  /// 更新阅读进度
+  void updateReadingProgress(double progress) {
+    _readingProgress = progress.clamp(0.0, 1.0);
+    notifyListeners();
   }
 }
