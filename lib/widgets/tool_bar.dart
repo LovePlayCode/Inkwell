@@ -180,7 +180,7 @@ class _FileNameDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayName = fileName ?? 'MD Reader';
+    final displayName = fileName ?? 'Inkwell';
     final hasFile = fileName != null;
 
     return Row(

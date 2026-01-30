@@ -7,9 +7,9 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:md_reader/app.dart';
-import 'package:md_reader/providers/theme_provider.dart';
-import 'package:md_reader/providers/document_provider.dart';
+import 'package:inkwell/app.dart';
+import 'package:inkwell/providers/theme_provider.dart';
+import 'package:inkwell/providers/document_provider.dart';
 
 void main() {
   testWidgets('App renders correctly', (WidgetTester tester) async {
@@ -20,11 +20,11 @@ void main() {
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
           ChangeNotifierProvider(create: (_) => DocumentProvider()),
         ],
-        child: const MDReaderApp(),
+        child: const InkwellApp(),
       ),
     );
 
     // Verify that the app title or empty state is shown
-    expect(find.text('MD Reader'), findsOneWidget);
+    expect(find.text('Inkwell'), findsOneWidget);
   });
 }

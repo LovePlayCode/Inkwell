@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/document_provider.dart';
+import '../services/file_handler_service.dart';
 import '../widgets/tool_bar.dart';
 import '../widgets/drop_zone.dart';
 import '../widgets/markdown_viewer.dart';
@@ -22,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   final FocusNode _focusNode = FocusNode();
   late AnimationController _loadingAnimationController;
+  StreamSubscription<String>? _fileOpenSubscription;
 
   @override
   void initState() {
@@ -30,12 +33,28 @@ class _HomeScreenState extends State<HomeScreen>
       duration: AppConstants.animationNormal,
       vsync: this,
     );
+
+    // 监听系统文件打开事件
+    // 使用 subscribe 方法，这会自动处理在订阅之前接收到的文件（冷启动场景）
+    _fileOpenSubscription = FileHandlerService.subscribe(_handleFileOpen);
+  }
+
+  void _handleFileOpen(String filePath) {
+    debugPrint('[HomeScreen] Received file open request: $filePath');
+    if (!mounted) {
+      debugPrint('[HomeScreen] Widget not mounted, ignoring');
+      return;
+    }
+    final documentProvider = context.read<DocumentProvider>();
+    debugPrint('[HomeScreen] Loading file...');
+    documentProvider.loadFile(filePath);
   }
 
   @override
   void dispose() {
     _focusNode.dispose();
     _loadingAnimationController.dispose();
+    _fileOpenSubscription?.cancel();
     super.dispose();
   }
 

@@ -14,9 +14,14 @@ class MainFlutterWindow: NSWindow {
     // 设置窗口标题栏样式
     self.titlebarAppearsTransparent = false
     self.titleVisibility = .visible
-    self.title = "MD Reader"
+    self.title = "Inkwell"
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    
+    // 通知 AppDelegate FlutterViewController 已就绪
+    if let appDelegate = NSApp.delegate as? AppDelegate {
+      appDelegate.onFlutterViewControllerReady(flutterViewController)
+    }
 
     super.awakeFromNib()
   }

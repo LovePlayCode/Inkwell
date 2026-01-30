@@ -1,5 +1,5 @@
-name: md_reader
-description: "A minimalist Markdown reader for macOS"
+name: inkwell
+description: "Inkwell - A minimalist Markdown reader for macOS"
 publish_to: 'none'
 version: 1.0.0+1
 
